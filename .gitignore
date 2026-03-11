@@ -2,7 +2,7 @@ venv/
 env/
 .env
 *.pyc
-__pychach__/
+__pycache__/
 db.sqlite3
 media/
 staticfiles/
