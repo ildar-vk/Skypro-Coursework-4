@@ -4,7 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from .models import Client
 from .forms import ClientForm
-
+from django.views.generic import TemplateView
+from .models import Mailing, Client
 
 class ClientListView(LoginRequiredMixin, ListView):
     """Список клиентов текущего пользователя"""
@@ -118,3 +119,13 @@ class MailingDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Рассылка удалена.')
         return super().delete(request, *args, **kwargs)
+
+class HomeView(TemplateView):
+    template_name = 'mailing/home.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_mailings'] = Mailing.objects.count()
+        context['active_mailings'] = Mailing.objects.filter(status='started').count()
+        context['total_clients'] = Client.objects.count()
+        return context
