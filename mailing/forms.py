@@ -2,17 +2,34 @@ from django import forms
 from django.utils import timezone
 from .models import Client, Message, Mailing
 
+
 class ClientForm(forms.ModelForm):
     class Meta:
         model = Client
-        fields = ['email','full_name','comment']
-        widgets = { 'comment': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'})}
+        fields = ['email', 'full_name', 'comment']
+        widgets = {
+            'comment': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
 
-
-    def __init__(self, *args,**kwargs):
-        super().__init__(*args,**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({'class': 'form-control'})
+
+
+class MessageForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['theme', 'body']
+        widgets = {
+            'body': forms.Textarea(attrs={'rows': 5}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({'class': 'form-control'})
+
 
 class MailingForm(forms.ModelForm):
     class Meta:
@@ -25,11 +42,8 @@ class MailingForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # Извлекаем request из kwargs, если он передан
         request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
-
-        # Если есть request и пользователь авторизован, фильтруем queryset
         if request and request.user.is_authenticated:
             self.fields['recipients'].queryset = Client.objects.filter(owner=request.user)
             self.fields['message'].queryset = Message.objects.filter(owner=request.user)
@@ -47,16 +61,3 @@ class MailingForm(forms.ModelForm):
             if start < timezone.now():
                 raise forms.ValidationError('Дата начала не может быть в прошлом.')
         return cleaned_data
-
-class MessageForm(forms.ModelForm):
-    class Meta:
-        model = Message
-        fields = ['theme', 'body']
-        widgets = {
-            'body': forms.Textarea(attrs={'rows': 5}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})

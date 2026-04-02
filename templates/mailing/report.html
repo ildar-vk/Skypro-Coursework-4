@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Отчёты по моим рассылкам</h2>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Рассылка (тема сообщения)</th>
+                <th>Успешно</th>
+                <th>Не успешно</th>
+                <th>Всего попыток</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in report %}
+            <tr>
+                <td>{{ item.mailing.message.theme }}</a></td>
+                <td>{{ item.success_count }}</td>
+                <td>{{ item.failure_count }}</td>
+                <td>{{ item.total }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">Нет рассылок или попыток.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

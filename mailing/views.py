@@ -189,3 +189,24 @@ class MessageDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Сообщение удалено.')
         return super().delete(request, *args, **kwargs)
+
+class ReportView(LoginRequiredMixin, TemplateView):
+    template_name = 'mailing/report.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        mailings = Mailing.objects.filter(owner=user)
+        report = []
+        for mailing in mailings:
+            attempts = MailingAttempt.objects.filter(mailing=mailing)
+            success_count = attempts.filter(status='success').count()
+            failure_count = attempts.filter(status='failure').count()
+            report.append({
+                'mailing': mailing,
+                'success_count': success_count,
+                'failure_count': failure_count,
+                'total': success_count + failure_count,
+            })
+        context['report'] = report
+        return context

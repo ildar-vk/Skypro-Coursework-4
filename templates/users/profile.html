@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Мой профиль</h2>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Имя:</strong> {{ user.first_name|default:"не указано" }}</p>
+    <p><strong>Фамилия:</strong> {{ user.last_name|default:"не указано" }}</p>
+    <p><strong>Телефон:</strong> {{ user.phone_number|default:"не указано" }}</p>
+    <p><strong>Страна:</strong> {{ user.country|default:"не указано" }}</p>
+    <p><strong>Аватар:</strong> {% if user.avatar %}<img src="{{ user.avatar.url }}" width="100">{% else %}нет{% endif %}</p>
+    <a href="{% url 'home' %}" class="btn btn-secondary">На главную</a>
+    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary mt-3">Редактировать профиль</a>
+</div>
+{% endblock %}
