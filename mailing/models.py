@@ -1,8 +1,8 @@
-from django.core.exceptions import ValidationError
-from django.db import models
 from django.conf import settings
-from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.db import models
+from django.utils import timezone
 
 
 class Client(models.Model):
@@ -10,14 +10,15 @@ class Client(models.Model):
     full_name = models.CharField(max_length=150, verbose_name="ФИО")
     comment = models.TextField(blank=True, null=True, verbose_name="Комментарии")
 
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                              blank=True, null=True, verbose_name="Владелец")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Владелец"
+    )
 
     class Meta:
         verbose_name = "Клиент"
         verbose_name_plural = "Клиенты"
         permissions = [
-            ('can_view_all_clients', 'Может просматривать всех клиентов'),
+            ("can_view_all_clients", "Может просматривать всех клиентов"),
         ]
 
     def __str__(self):
@@ -28,14 +29,15 @@ class Message(models.Model):
     theme = models.CharField(unique=True, max_length=100, verbose_name="Тема письма")
     body = models.TextField(blank=True, null=True, verbose_name="Тело письма")
 
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                              blank=True, null=True, verbose_name="Владелец")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Владелец"
+    )
 
     class Meta:
         verbose_name = "Сообщение"
         verbose_name_plural = "Сообщения"
         permissions = [
-            ('can_view_all_messages', 'Может просматривать все сообщения'),
+            ("can_view_all_messages", "Может просматривать все сообщения"),
         ]
 
     def __str__(self):
@@ -44,9 +46,11 @@ class Message(models.Model):
 
 class MailingAttempt(models.Model):
     attempt_time = models.DateTimeField(auto_now_add=True, verbose_name="Дата и время попытки")
-    status = models.CharField(max_length=20, choices=[('success', 'Успешно'), ('failure', 'Ошибка')], verbose_name="Статус")
+    status = models.CharField(
+        max_length=20, choices=[("success", "Успешно"), ("failure", "Ошибка")], verbose_name="Статус"
+    )
     server_response = models.TextField(blank=True, null=True, verbose_name="Ответ сервера")
-    mailing = models.ForeignKey('Mailing', on_delete=models.CASCADE, related_name='attempts', verbose_name="Рассылка")
+    mailing = models.ForeignKey("Mailing", on_delete=models.CASCADE, related_name="attempts", verbose_name="Рассылка")
 
     class Meta:
         verbose_name = "Попытка рассылки"
@@ -60,26 +64,25 @@ class Mailing(models.Model):
     start_time = models.DateTimeField(verbose_name="Дата и время начала")
     end_time = models.DateTimeField(verbose_name="Дата и время окончания")
 
-    message = models.ForeignKey(Message, on_delete=models.CASCADE,
-                                blank=True, null=True, verbose_name="Сообщение")
-    recipients = models.ManyToManyField(Client,
-                                        blank=True, verbose_name="Получатель")
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                              blank=True, null=True, verbose_name="Владелец")
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Сообщение")
+    recipients = models.ManyToManyField(Client, blank=True, verbose_name="Получатель")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Владелец"
+    )
 
     STATUS_CHOICES = [
-        ('created', 'Создана'),
-        ('started', 'Запущена'),
-        ('completed', 'Завершена'),
+        ("created", "Создана"),
+        ("started", "Запущена"),
+        ("completed", "Завершена"),
     ]
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='created')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="created")
 
     class Meta:
         verbose_name = "Рассылка"
         verbose_name_plural = "Рассылки"
         permissions = [
-            ('can_view_all_mailings', 'Может просматривать все рассылки'),
-            ('can_block_users', 'Может блокировать пользователей'),
+            ("can_view_all_mailings", "Может просматривать все рассылки"),
+            ("can_block_users", "Может блокировать пользователей"),
         ]
 
     def __str__(self):
@@ -89,26 +92,22 @@ class Mailing(models.Model):
         super().clean()
         if self.start_time and self.end_time:
             if self.end_time <= self.start_time:
-                raise ValidationError({
-                    'end_time': "Дата окончания не может быть раньше или равна дате начала."
-                })
+                raise ValidationError({"end_time": "Дата окончания не может быть раньше или равна дате начала."})
             if not self.pk and self.start_time < timezone.now():
-                raise ValidationError({
-                    'start_time': "Рассылка не может начинаться в прошлом."
-                })
+                raise ValidationError({"start_time": "Рассылка не может начинаться в прошлом."})
 
     def update_status(self):
         now = timezone.now()
         if self.end_time <= now:
-            self.status = 'completed'
+            self.status = "completed"
         elif self.start_time <= now < self.end_time:
-            self.status = 'started'
+            self.status = "started"
         else:
-            self.status = 'created'
-        self.save(update_fields=['status'])
+            self.status = "created"
+        self.save(update_fields=["status"])
 
     def send_mailing(self):
-        if self.status != 'started':
+        if self.status != "started":
             return
 
         for client in self.recipients.all():
@@ -120,10 +119,10 @@ class Mailing(models.Model):
                     recipient_list=[client.email],
                     fail_silently=False,
                 )
-                status = 'success'
-                response = 'Письмо успешно отправлено'
+                status = "success"
+                response = "Письмо успешно отправлено"
             except Exception as e:
-                status = 'failure'
+                status = "failure"
                 response = str(e)
 
             MailingAttempt.objects.create(
