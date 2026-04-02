@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.core.mail import send_mail
 
 
 class Client(models.Model):
@@ -76,6 +77,34 @@ class Mailing (models.Model):
         else:
             self.status = 'created'
         self.save()
+
+    def send_mailing(self):
+        #from django.core.mail import send_mail
+        #from .models import MailingAttempt
+
+        if self.status != 'started':
+            return
+
+        for client in self.recipients.all():
+            try:
+                send_mail(
+                    subject=self.message.theme,
+                    message=self.message.body,
+                    from_email=None,
+                    recipient_list=[client.email],
+                    fail_silently=False,
+                )
+                status = 'success'
+                response = 'Письмо успешно отправлено'
+            except Exception as e:
+                status = 'failure'
+                response = str(e)
+
+            MailingAttempt.objects.create(
+                mailing=self,
+                status=status,
+                server_response=response,
+            )
 
     class Meta:
         verbose_name = "Рассылка"

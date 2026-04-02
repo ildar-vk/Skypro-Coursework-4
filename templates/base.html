@@ -12,7 +12,10 @@
             <div class="d-flex">
                 {% if user.is_authenticated %}
                     <span class="navbar-text text-white me-3">Привет, {{ user.email }}</span>
-                    <a href="{% url 'logout' %}" class="btn btn-outline-light">Выйти</a>
+                    <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-light">Выйти</button>
+                    </form>
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-outline-light me-2">Войти</a>
                     <a href="{% url 'register' %}" class="btn btn-primary">Регистрация</a>

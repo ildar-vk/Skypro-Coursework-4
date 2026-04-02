@@ -1,7 +1,6 @@
 from django import forms
-from .models import Client
-from .models import Mailing
 from django.utils import timezone
+from .models import Client, Message, Mailing
 
 class ClientForm(forms.ModelForm):
     class Meta:
@@ -26,18 +25,14 @@ class MailingForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # Извлекаем request из kwargs, если он передан
+        request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
-        if 'instance' in kwargs and kwargs['instance'] and kwargs['instance'].owner:
-            user = kwargs['instance'].owner
-        elif 'request' in kwargs:
-            user = kwargs['request'].user
-        else:
-            user = None
-
-        if user:
-            self.fields['recipients'].queryset = Client.objects.filter(owner=user)
-            self.fields['message'].queryset = Message.objects.filter(owner=user)
+        # Если есть request и пользователь авторизован, фильтруем queryset
+        if request and request.user.is_authenticated:
+            self.fields['recipients'].queryset = Client.objects.filter(owner=request.user)
+            self.fields['message'].queryset = Message.objects.filter(owner=request.user)
         else:
             self.fields['recipients'].queryset = Client.objects.none()
             self.fields['message'].queryset = Message.objects.none()
@@ -52,3 +47,16 @@ class MailingForm(forms.ModelForm):
             if start < timezone.now():
                 raise forms.ValidationError('Дата начала не может быть в прошлом.')
         return cleaned_data
+
+class MessageForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['theme', 'body']
+        widgets = {
+            'body': forms.Textarea(attrs={'rows': 5}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({'class': 'form-control'})

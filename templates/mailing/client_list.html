@@ -1,346 +1,40 @@
-mailing/
-admin.py
-from django.contrib import admin
-from .models import Client, Message, Mailing, MailingAttempt
-
-@admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'email', 'owner')
-    search_fields = ('full_name', 'email')
-    list_filter = ('owner',)
-
-@admin.register(Message)
-class MessageAdmin(admin.ModelAdmin):
-    list_display = ('theme', 'owner')
-    search_fields = ('theme',)
-
-@admin.register(Mailing)
-class MailingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'start_time', 'end_time', 'status', 'message', 'owner')
-    list_filter = ('status', 'start_time', 'owner')
-    search_fields = ('message__theme',)
-
-@admin.register(MailingAttempt)
-class MailingAttemptAdmin(admin.ModelAdmin):
-    list_display = ('attempt_time', 'status', 'mailing')
-    list_filter = ('status',)
-forms.py
-from django import forms
-from .models import Client
-from .models import Mailing
-
-class ClientForm(forms.ModelForm):
-    class Meta:
-        model = Client
-        fields = ['email','full_name','comment']
-        widgets = { 'comment': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'})}
-
-
-    def __init__(self, *args,**kwargs):
-        super().__init__(*args,**kwargs)
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})
-
-class MailingForm(forms.ModelForm):
-    class Meta:
-        model = Mailing
-        fields = ['start_time', 'end_time', 'message', 'recipients']
-        widgets = {
-            'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
-            'end_time': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
-            'recipients': forms.SelectMultiple(attrs={'class': 'form-control'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if 'instance' in kwargs and kwargs['instance'] and kwargs['instance'].owner:
-            user = kwargs['instance'].owner
-        elif 'request' in kwargs:
-            user = kwargs['request'].user
-        else:
-            user = None
-
-        if user:
-            self.fields['recipients'].queryset = Client.objects.filter(owner=user)
-            self.fields['message'].queryset = Message.objects.filter(owner=user)
-        else:
-            self.fields['recipients'].queryset = Client.objects.none()
-            self.fields['message'].queryset = Message.objects.none()
-
-    def clean(self):
-        cleaned_data = super().clean()
-        start = cleaned_data.get('start_time')
-        end = cleaned_data.get('end_time')
-        if start and end:
-            if start >= end:
-                raise forms.ValidationError('Дата начала должна быть раньше даты окончания.')
-            if start < timezone.now():
-                raise forms.ValidationError('Дата начала не может быть в прошлом.')
-        return cleaned_data
-models.py
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.conf import settings
-from django.utils import timezone
-
-
-class Client(models.Model):
-    email = models.EmailField(unique = True, verbose_name = "Электронная почта")
-    full_name =models.CharField(max_length = 150, verbose_name = "ФИО")
-    comment = models.TextField(blank = True, null = True, verbose_name = "Комментарии")
-
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete =models.CASCADE,
-                             blank = True, null = True, verbose_name = "Владелец")
-    class Meta:
-        verbose_name = "Клиент"
-        verbose_name_plural = "Клиенты"
-
-    def __str__(self):
-        return f"{self.full_name} ({self.email})"
-
-class Message(models.Model):
-    theme = models.CharField(unique = True,max_length = 100, verbose_name = "Тема письма")
-    body = models.TextField(blank = True, null = True, verbose_name = "Тело письма")
-
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE,
-                              blank = True, null = True, verbose_name = "Владелец" )
-
-    class Meta:
-        verbose_name = "Сообщение"
-        verbose_name_plural = "Сообщения"
-
-    def __str__(self):
-        return f"{self.theme} ({self.owner})"
-
-
-class Mailing (models.Model):
-    start_time = models.DateTimeField( verbose_name = "Дата и время начала")
-    end_time = models.DateTimeField( verbose_name = "Дата и время окончания")
-
-    message = models.ForeignKey('Message', on_delete = models.CASCADE,
-                                blank = True, null = True, verbose_name = "Сообщение")
-    recipients = models.ManyToManyField('Client',
-                                blank = True, verbose_name = "Получатель")
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete = models.CASCADE,
-                                blank = True, null = True, verbose_name = "Владелец")
-
-    STATUS_CHOICES = [
-        ('created', 'Создана'),
-        ('started', 'Запущена'),
-        ('completed', 'Завершена'),
-    ]
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='created')
-
-    def clean(self):
-
-        super().clean()
-
-        if self.start_time and self.end_time:
-
-            if self.end_time <= self.start_time:
-                raise ValidationError({
-                    'end_time': "Дата окончания не может быть раньше или равна дате начала."
-                })
-
-            if not self.pk and self.start_time < timezone.now():
-                raise ValidationError({
-                    'start_time': "Рассылка не может начинаться в прошлом."
-                })
-
-    def update_status(self):
-        now = timezone.now()
-        if self.end_time <= now:
-            self.status = 'completed'
-        elif self.start_time <= now < self.end_time:
-            self.status = 'started'
-        else:
-            self.status = 'created'
-        self.save()
-
-    class Meta:
-        verbose_name = "Рассылка"
-        verbose_name_plural = "Рассылки"
-
-    def __str__(self):
-        return f"Рассылка с {self.start_time} по {self.end_time}"
-
-class MailingAttempt(models.Model):
-    attempt_time = models.DateTimeField(auto_now_add=True, verbose_name="Дата и время попытки")
-    status = models.CharField(max_length=20, choices=[('success', 'Успешно'), ('failure', 'Ошибка')], verbose_name="Статус")
-    server_response = models.TextField(blank=True, null=True, verbose_name="Ответ сервера")
-    mailing = models.ForeignKey(Mailing, on_delete=models.CASCADE, related_name='attempts', verbose_name="Рассылка")
-
-    class Meta:
-        verbose_name = "Попытка рассылки"
-        verbose_name_plural = "Попытки рассылки"
-
-    def __str__(self):
-        return f"Попытка {self.id} для {self.mailing.message.theme} ({self.status})"
-urls.py
-from django.urls import path
-from . import views
-
-app_name = 'mailing'
-
-urlpatterns = [
-    path('clients/', views.ClientListView.as_view(), name='client_list'),
-    path('clients/create/', views.ClientCreateView.as_view(), name='client_create'),
-    path('clients/<int:pk>/update/', views.ClientUpdateView.as_view(), name='client_update'),
-    path('clients/<int:pk>/delete/', views.ClientDeleteView.as_view(), name='client_delete'),
-    path('mailings/', views.MailingListView.as_view(), name='mailing_list'),
-    path('mailings/create/', views.MailingCreateView.as_view(), name='mailing_create'),
-    path('mailings/<int:pk>/update/', views.MailingUpdateView.as_view(), name='mailing_update'),
-    path('mailings/<int:pk>/delete/', views.MailingDeleteView.as_view(), name='mailing_delete'),
-]
-vievs/py
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
-from .models import Client
-from .forms import ClientForm
-
-
-class ClientListView(LoginRequiredMixin, ListView):
-    """Список клиентов текущего пользователя"""
-    model = Client
-    template_name = 'mailing/client_list.html'
-    context_object_name = 'clients'
-    paginate_by = 10
-
-    def get_queryset(self):
-
-        return Client.objects.filter(owner=self.request.user)
-
-
-class ClientCreateView(LoginRequiredMixin, CreateView):
-    """Создание нового клиента"""
-    model = Client
-    form_class = ClientForm
-    template_name = 'mailing/client_form.html'
-    success_url = reverse_lazy('mailing:client_list')
-
-    def form_valid(self, form):
-
-        form.instance.owner = self.request.user
-        messages.success(self.request, 'Клиент успешно добавлен.')
-        return super().form_valid(form)
-
-
-class ClientUpdateView(LoginRequiredMixin, UpdateView):
-    """Редактирование клиента (только своих)"""
-    model = Client
-    form_class = ClientForm
-    template_name = 'mailing/client_form.html'
-    success_url = reverse_lazy('mailing:client_list')
-
-    def get_queryset(self):
-
-        return Client.objects.filter(owner=self.request.user)
-
-    def form_valid(self, form):
-        messages.success(self.request, 'Клиент успешно обновлён.')
-        return super().form_valid(form)
-
-
-class ClientDeleteView(LoginRequiredMixin, DeleteView):
-    """Удаление клиента (только своих)"""
-    model = Client
-    template_name = 'mailing/client_confirm_delete.html'
-    success_url = reverse_lazy('mailing:client_list')
-
-    def get_queryset(self):
-        return Client.objects.filter(owner=self.request.user)
-
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Клиент удалён.')
-        return super().delete(request, *args, **kwargs)
-
-from .models import Mailing
-from .forms import MailingForm
-
-class MailingListView(LoginRequiredMixin, ListView):
-    model = Mailing
-    template_name = 'mailing/mailing_list.html'
-    context_object_name = 'mailings'
-    paginate_by = 10
-
-    def get_queryset(self):
-        return Mailing.objects.filter(owner=self.request.user)
-
-class MailingCreateView(LoginRequiredMixin, CreateView):
-    model = Mailing
-    form_class = MailingForm
-    template_name = 'mailing/mailing_form.html'
-    success_url = reverse_lazy('mailing:mailing_list')
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
-        return kwargs
-
-    def form_valid(self, form):
-        form.instance.owner = self.request.user
-        messages.success(self.request, 'Рассылка успешно создана.')
-        return super().form_valid(form)
-
-class MailingUpdateView(LoginRequiredMixin, UpdateView):
-    model = Mailing
-    form_class = MailingForm
-    template_name = 'mailing/mailing_form.html'
-    success_url = reverse_lazy('mailing:mailing_list')
-
-    def get_queryset(self):
-        return Mailing.objects.filter(owner=self.request.user)
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
-        return kwargs
-
-    def form_valid(self, form):
-        messages.success(self.request, 'Рассылка успешно обновлена.')
-        return super().form_valid(form)
-
-class MailingDeleteView(LoginRequiredMixin, DeleteView):
-    model = Mailing
-    template_name = 'mailing/mailing_confirm_delete.html'
-    success_url = reverse_lazy('mailing:mailing_list')
-
-    def get_queryset(self):
-        return Mailing.objects.filter(owner=self.request.user)
-
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Рассылка удалена.')
-        return super().delete(request, *args, **kwargs)
-templates/mailing/
-client_confirm_delete.html
 {% extends 'base.html' %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Удалить клиента?</h2>
-    <p>Вы уверены, что хотите удалить клиента <strong>{{ object.full_name }}</strong> ({{ object.email }})?</p>
-    <form method="post">
+    <h2>Мои клиенты</h2>
+    <a href="{% url 'mailing:client_create' %}" class="btn btn-primary mb-3">Добавить клиента</a>
 
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">Да, удалить</button>
-        <a href="{% url 'mailing:client_list' %}" class="btn btn-secondary">Отмена</a>
-    </form>
-</div>
-{% endblock %}
-client_form.html
-{% extends 'base.html' %}
-
-{% block content %}
-<div class="container mt-4">
-    <h2>{% if object %}Редактировать клиента{% else %}Новый клиент{% endif %}</h2>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success">Сохранить</button>
-        <a href="{% url 'mailing:client_list' %}" class="btn btn-secondary">Отмена</a>
-    </form>
+    {% if clients %}
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>ФИО</th>
+                    <th>Комментарий</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client.email }}</td>
+                    <td>{{ client.full_name }}</td>
+                    <td>{{ client.comment|truncatechars:50 }}</td>
+                    <td>
+                        <a href="{% url 'mailing:client_update' client.pk %}" class="btn btn-sm btn-warning">Изменить</a>
+                        <a href="{% url 'mailing:client_delete' client.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">Нет клиентов. <a href="{% url 'mailing:client_create' %}">Создайте первого</a>.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>У вас пока нет клиентов. <a href="{% url 'mailing:client_create' %}">Создайте первого</a>.</p>
+    {% endif %}
 </div>
 {% endblock %}
