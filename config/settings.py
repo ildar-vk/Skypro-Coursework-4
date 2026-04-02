@@ -11,11 +11,12 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-
 from dotenv import load_dotenv
+from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
-from pathlib import Path
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -124,7 +125,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -134,7 +134,7 @@ LOGOUT_REDIRECT_URL = "login"
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# ========== КЕШИРОВАНИЕ REDIS ==========
+# КЕШИРОВАНИЕ REDIS
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -145,5 +145,5 @@ CACHES = {
     }
 }
 
-# Кеширование всей страницы (время жизни 15 минут)
+# Кеширование всей страницы
 CACHE_MIDDLEWARE_SECONDS = 900

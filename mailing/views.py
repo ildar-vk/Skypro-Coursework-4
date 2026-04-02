@@ -4,13 +4,12 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, UpdateView
-
-from .forms import ClientForm, MessageForm
+from .forms import ClientForm, MessageForm, MailingForm
 from .models import Client, Mailing, Message
+from .models import MailingAttempt
 
 
 class ClientListView(LoginRequiredMixin, ListView):
-    """Список клиентов текущего пользователя"""
 
     model = Client
     template_name = "mailing/client_list.html"
@@ -23,7 +22,6 @@ class ClientListView(LoginRequiredMixin, ListView):
 
 
 class ClientCreateView(LoginRequiredMixin, CreateView):
-    """Создание нового клиента"""
 
     model = Client
     form_class = ClientForm
@@ -38,7 +36,6 @@ class ClientCreateView(LoginRequiredMixin, CreateView):
 
 
 class ClientUpdateView(LoginRequiredMixin, UpdateView):
-    """Редактирование клиента (только своих)"""
 
     model = Client
     form_class = ClientForm
@@ -55,7 +52,6 @@ class ClientUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class ClientDeleteView(LoginRequiredMixin, DeleteView):
-    """Удаление клиента (только своих)"""
 
     model = Client
     template_name = "mailing/client_confirm_delete.html"
@@ -67,10 +63,6 @@ class ClientDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Клиент удалён.")
         return super().delete(request, *args, **kwargs)
-
-
-from .forms import MailingForm
-from .models import Mailing
 
 
 class MailingListView(LoginRequiredMixin, ListView):
