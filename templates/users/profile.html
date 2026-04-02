@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Мой профиль</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Email:</div>
+                        <div class="col-sm-8">{{ user.email }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Имя:</div>
+                        <div class="col-sm-8">{{ user.first_name|default:"не указано" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Фамилия:</div>
+                        <div class="col-sm-8">{{ user.last_name|default:"не указано" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Телефон:</div>
+                        <div class="col-sm-8">{{ user.phone_number|default:"не указано" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Страна:</div>
+                        <div class="col-sm-8">{{ user.country|default:"не указано" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-bold">Аватар:</div>
+                        <div class="col-sm-8">
+                            {% if user.avatar %}
+                                <img src="{{ user.avatar.url }}" width="100" class="img-thumbnail">
+                            {% else %}
+                                нет
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary">Редактировать профиль</a>
+                    <a href="{% url 'home' %}" class="btn btn-secondary">На главную</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
