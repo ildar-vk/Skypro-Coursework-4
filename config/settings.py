@@ -131,3 +131,17 @@ LOGIN_REDIRECT_URL = 'mailing:client_list'
 LOGOUT_REDIRECT_URL = 'login'
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# ========== КЕШИРОВАНИЕ REDIS ==========
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+# Кеширование всей страницы (время жизни 15 минут)
+CACHE_MIDDLEWARE_SECONDS = 900

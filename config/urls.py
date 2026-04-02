@@ -19,9 +19,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from mailing.views import HomeView
+from django.views.decorators.cache import cache_page
 
 urlpatterns = [
-    path('', HomeView.as_view(), name='home'),
+    path('', cache_page(60 * 15)(HomeView.as_view()), name='home'),
     path('admin/', admin.site.urls),
     path('mailing/', include('mailing.urls')),
     path('users/', include('users.urls')),

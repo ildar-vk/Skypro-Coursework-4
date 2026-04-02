@@ -3,11 +3,17 @@ version: '3.8'
 services:
   web:
     build: .
-    container_name: coursework_4_django
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
     environment:
-      - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/1
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
